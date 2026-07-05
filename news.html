@@ -2089,75 +2089,106 @@
 
 	<!-- AUTOMATED ARCHIVE REPAIR SCRIPT -->
 	<script>
-		document.addEventListener("DOMContentLoaded", () => {
-			// Force the exact base folder path depending on where the site is running
-			const isGitHub = window.location.hostname.includes("github.io");
-			const base = isGitHub ? "/inbox.brawlstars.com/" : "/";
+			(function () {
+				// Suppress app-level native protocol errors
+				const originalLocation = window.location.assign;
+				window.location.assign = function (url) {
+					if (url && url.includes("brawlstars-inbox://")) return;
+					if (originalLocation) originalLocation.apply(this, arguments);
+				};
 
-			// Helper to clean up raw URL strings and prepend correct path
-			let cleanPaths = (rawStr) => {
-				if (!rawStr) return "";
+				document.addEventListener("DOMContentLoaded", () => {
+					const isGitHub = window.location.hostname.includes("github.io");
 
-				// Clean up the text string
-				let path = rawStr
-					.replace(/https:\/\/inbox\.brawlstars\.com\//g, "")
-					.replace(/\?mtime=\d+/g, "")
-					.replace(/\?cachebust=[a-zA-Z0-9]+/g, "")
-					.trim();
+					// If on GitHub Pages, we point directly to the raw repository media storage bypass!
+					const base = isGitHub
+						? "https://raw.githubusercontent.com/smp-11/inbox.brawlstars.com/main/"
+						: "/";
 
-				// If it's a relative path, ensure it targets the correct project folder
-				if (!path.startsWith("http") && !path.startsWith("/")) {
-					path = base + path;
-				}
-				return path;
-			};
+					function cleanAndFixPath(rawStr) {
+						if (!rawStr) return "";
 
-			// 1. Clean all picture sources
-			document.querySelectorAll("picture source, picture img").forEach(el => {
-				if (el.hasAttribute("data-srcset")) {
-					el.setAttribute("srcset", cleanPaths(el.getAttribute("data-srcset")));
-				}
-				if (el.hasAttribute("srcset")) {
-					el.setAttribute("srcset", cleanPaths(el.getAttribute("srcset")));
-				}
-			});
+						let path = rawStr
+							.replace(/https:\/\/inbox\.brawlstars\.com\//g, "")
+							.replace(/\?mtime=\d+/g, "")
+							.replace(/\?cachebust=[a-zA-Z0-9]+/g, "")
+							.trim();
 
-			// 2. Fix the fallback <img> tags safely
-			document.querySelectorAll("picture").forEach(picture => {
-				let firstSource = picture.querySelector("source");
-				let fallbackImg = picture.querySelector("img");
-
-				if (fallbackImg) {
-					let path = "uploaded-images/_800x433_crop_center-center_80/192348825_1605078693.jpg"; // Default backup
-
-					if (firstSource && firstSource.hasAttribute("srcset")) {
-						let srcsetVal = firstSource.getAttribute("srcset");
-						// Grab the path before the first space or comma separating resolutions
-						path = srcsetVal.split(/[\s,]+/)[0] || path;
+						if (!path.startsWith("http") && !path.startsWith("/")) {
+							path = base + path;
+						}
+						return path;
 					}
 
-					fallbackImg.setAttribute("src", cleanPaths(path));
-					fallbackImg.style.width = "100%";
-					fallbackImg.style.height = "auto";
-					fallbackImg.style.display = "block";
-				}
-			});
+					function repairPageElements() {
+						document.querySelectorAll("picture").forEach(picture => {
+							let sources = picture.querySelectorAll("source");
+							let img = picture.querySelector("img");
 
-			// 3. Un-hide all lazyloaded containers
-			document.querySelectorAll(".lazyload, .lazy-wrapper").forEach(el => {
-				el.classList.remove("lazyload");
-				el.style.opacity = "1";
-				el.style.visibility = "visible";
-			});
+							sources.forEach(source => {
+								let targetSrcset = source.getAttribute("data-srcset") || source.getAttribute("srcset");
+								if (targetSrcset && (!targetSrcset.includes("raw.githubusercontent") && isGitHub || !isGitHub && targetSrcset.includes("https://inbox.brawlstars.com"))) {
+									let repairedSrcset = targetSrcset.split(',').map(part => {
+										let segments = part.trim().split(/\s+/);
+										segments[0] = cleanAndFixPath(segments[0]);
+										return segments.join(" ");
+									}).join(", ");
 
-			// 4. Prevent broken protocol links
-			document.addEventListener("click", (e) => {
-				let anchor = e.target.closest("a");
-				if (anchor && anchor.getAttribute("href") && anchor.getAttribute("href").includes("brawlstars-inbox://")) {
-					e.preventDefault();
-				}
-			});
-		});
+									source.setAttribute("srcset", repairedSrcset);
+								}
+							});
+
+							if (img) {
+								let targetSrc = img.getAttribute("data-src") || img.getAttribute("src");
+
+								if (targetSrc && (!targetSrc.includes("_crop_") || (isGitHub && !targetSrc.includes("raw.githubusercontent")))) {
+									let structuralParent = img.closest("[data-large-retina-url]");
+									if (structuralParent) {
+										targetSrc = structuralParent.getAttribute("data-large-retina-url");
+									} else if (sources.length > 0) {
+										let alternativeData = sources[0].getAttribute("data-srcset") || sources[0].getAttribute("srcset");
+										if (alternativeData) targetSrc = alternativeData.split(/[\s,]+/)[0];
+									}
+								}
+
+								if (targetSrc) {
+									img.setAttribute("src", cleanAndFixPath(targetSrc));
+								}
+
+								img.style.width = "100%";
+								img.style.height = "auto";
+								img.style.display = "block";
+								img.style.opacity = "1";
+								img.style.visibility = "visible";
+							}
+						});
+
+						document.querySelectorAll(".lazyload, .lazy-wrapper").forEach(el => {
+							el.classList.remove("lazyload");
+							el.style.opacity = "1";
+							el.style.visibility = "visible";
+						});
+					}
+
+					repairPageElements();
+
+					const observer = new MutationObserver((mutations) => {
+						observer.disconnect();
+						repairPageElements();
+						connectObserver();
+					});
+
+					function connectObserver() {
+						observer.observe(document.body, {
+							childList: true,
+							subtree: true,
+							attributes: true,
+							attributeFilter: ['srcset', 'src', 'class']
+						});
+					}
+					connectObserver();
+				});
+			})();
 	</script>
 </body>
 
