@@ -2088,63 +2088,77 @@
 	<script src="assets/bundle.js"></script>
 
 	<!-- AUTOMATED ARCHIVE REPAIR SCRIPT -->
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    // 1. Force all image elements to look in your local folder instead of the live web
-    document.querySelectorAll("picture source, picture img").forEach(el => {
-      let cleanPaths = (rawStr) => {
-        if (!rawStr) return "";
-        return rawStr
-          .replace(/https:\/\/inbox\.brawlstars\.com\//g, "") // Removes absolute web link
-          .replace(/\?mtime=\d+/g, "")                       // Removes ?mtime parameter
-          .replace(/\?cachebust=[a-zA-Z0-9]+/g, "");        // Removes ?cachebust parameter
-      };
+	<script>
+		document.addEventListener("DOMContentLoaded", () => {
+			// Dynamically get the base path (e.g., "/inbox.brawlstars.com/")
+			const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
 
-      if (el.hasAttribute("data-srcset")) {
-        el.setAttribute("srcset", cleanPaths(el.getAttribute("data-srcset")));
-      }
-      if (el.hasAttribute("srcset")) {
-        el.setAttribute("srcset", cleanPaths(el.getAttribute("srcset")));
-      }
-    });
+			// 1. Force all image elements to look in your local folder instead of the live web
+			document.querySelectorAll("picture source, picture img").forEach(el => {
+				let cleanPaths = (rawStr) => {
+					if (!rawStr) return "";
+					let path = rawStr
+						.replace(/https:\/\/inbox\.brawlstars\.com\//g, "") // Removes absolute web link
+						.replace(/\?mtime=\d+/g, "")                       // Removes ?mtime parameter
+						.replace(/\?cachebust=[a-zA-Z0-9]+/g, "");        // Removes ?cachebust parameter
 
-    // 2. Fix the fallback <img> tags by copying the newly cleaned path from <source>
-    document.querySelectorAll("picture").forEach(picture => {
-      let firstSource = picture.querySelector("source");
-      let fallbackImg = picture.querySelector("img");
-      
-      if (fallbackImg) {
-        let path = "uploaded-images/_800x433_crop_center-center_80/192348825_1605078693.jpg"; // Default
-        
-        if (firstSource && firstSource.hasAttribute("srcset")) {
-          // Dynamically grab the first file path listed in the srcset rule
-          let srcsetVal = firstSource.getAttribute("srcset");
-          path = srcsetVal.split(" ")[0] || path; 
-        }
-        
-        fallbackImg.setAttribute("src", path);
-        fallbackImg.style.width = "100%";
-        fallbackImg.style.height = "auto";
-        fallbackImg.style.display = "block";
-      }
-    });
+					// If it's a relative path and doesn't already include our basePath, prepend it
+					if (!path.startsWith("http") && !path.startsWith("/") && !path.startsWith(basePath)) {
+						path = basePath + path;
+					}
+					return path;
+				};
 
-    // 3. Force lazyload container boxes to become visible (FIXED TYPO HERE)
-    document.querySelectorAll(".lazyload, .lazy-wrapper").forEach(el => {
-      el.classList.remove("lazyload");
-      el.style.opacity = "1";
-      el.style.visibility = "visible"; // Changed 'img' to 'el'
-    });
+				if (el.hasAttribute("data-srcset")) {
+					el.setAttribute("srcset", cleanPaths(el.getAttribute("data-srcset")));
+				}
+				if (el.hasAttribute("srcset")) {
+					el.setAttribute("srcset", cleanPaths(el.getAttribute("srcset")));
+				}
+			});
 
-    // 4. Block the game's internal tracking app error (brawlstars-inbox://getParams)
-    document.addEventListener("click", (e) => {
-      let anchor = e.target.closest("a");
-      if (anchor && anchor.getAttribute("href") && anchor.getAttribute("href").includes("brawlstars-inbox://")) {
-        e.preventDefault();
-      }
-    });
-  });
-</script>
+			// 2. Fix the fallback <img> tags by copying the newly cleaned path from <source>
+			document.querySelectorAll("picture").forEach(picture => {
+				let firstSource = picture.querySelector("source");
+				let fallbackImg = picture.querySelector("img");
+
+				if (fallbackImg) {
+					let path = "uploaded-images/_800x433_crop_center-center_80/192348825_1605078693.jpg"; // Default
+
+					if (firstSource && firstSource.hasAttribute("srcset")) {
+						// Dynamically grab the first file path listed in the srcset rule
+						let srcsetVal = firstSource.getAttribute("srcset");
+						path = srcsetVal.split(" ")[0] || path;
+					}
+
+					// Ensure fallback path also has the base path attached
+					if (!path.startsWith("http") && !path.startsWith("/") && !path.startsWith(basePath)) {
+						path = basePath + path;
+					}
+
+					fallbackImg.setAttribute("src", path);
+					fallbackImg.style.width = "100%";
+					fallbackImg.style.height = "auto";
+					fallbackImg.style.display = "block";
+				}
+			});
+
+			// 3. Force lazyload container boxes to become visible
+			document.querySelectorAll(".lazyload, .lazy-wrapper").forEach(el => {
+				el.classList.remove("lazyload");
+				el.style.opacity = "1";
+				el.style.visibility = "visible";
+			});
+
+			// 4. Block the game's internal tracking app error (brawlstars-inbox://getParams)
+			document.addEventListener("click", (e) => {
+				let anchor = e.target.closest("a");
+				if (anchor && anchor.getAttribute("href") && anchor.getAttribute("href").includes("brawlstars-inbox://")) {
+					e.preventDefault();
+				}
+			});
+		});
+	</script>
 </body>
 
 </html>
