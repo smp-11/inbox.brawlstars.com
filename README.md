@@ -6,7 +6,7 @@ This repository preserves the classic news page and includes several archived se
 
 ## Preview
 
-### Inbox
+### News
 https://smp-11.github.io/inbox.brawlstars.com/
 
 https://smp-11.github.io/inbox.brawlstars.com/index.html
